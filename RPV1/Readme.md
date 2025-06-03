@@ -27,6 +27,9 @@ Adafruit_NeoPixelがおすすめ
 > [!CAUTION]
 > 最大輝度でLEDを発光させないでください。
 
+## 発注するには
+[HowToOrder.md](./HowToOrder.md)  をご覧ください。
+
 ## 制作
 **sskrc**
 
