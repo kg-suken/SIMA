@@ -4,12 +4,16 @@
 
 ## SIMAの使い方
 WS2182BがGPIO8につながっています
-SparkFun_ProMicro_RP2350(RaspiPico2)と互換性があります。
+SparkFun_ProMicro_RP2350(RaspiPico2)と互換性があります。  
 
-ボードマネージャーURL
+Bootボタンを押した状態でPCと接続するとブートモードが変更されます。
+
+
+RP2040(2350)系のボードマネージャーURL
 ```
 https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
 ```
+SparkFun RP2350として認識させて書き込んでください。
 
 LED配列は(ライナー)
 ```
