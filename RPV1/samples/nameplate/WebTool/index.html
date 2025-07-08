@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>送受信</title>
+  <style>
+    @font-face {
+      font-family: 'MisakiGothic';
+      src: url('./misaki_gothic.ttf') format('truetype');
+    }
+    @font-face {
+      font-family: 'MisakiMincho';
+      src: url('./misaki_mincho.ttf') format('truetype');
+    }
+    @font-face {
+      font-family: 'MisakiGothic2nd';
+      src: url('./misaki_gothic_2nd.ttf') format('truetype');
+    }
+
+    body {
+      margin: 20px;
+      line-height: 1.6;
+      background-color: #fdfdfd;
+      color: #333;
+    }
+
+    h2, h3, h4 {
+      margin-bottom: 0.5em;
+      color: #222;
+    }
+
+    input, button, textarea, select {
+      font-size: 1rem;
+      padding: 0.5rem 0.8rem;
+      margin: 0.4rem 0.3rem 0.4rem 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #66afe9;
+      box-shadow: 0 0 4px rgba(102, 175, 233, 0.6);
+    }
+
+    button {
+      background-color: #1976d2;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #1565c0;
+    }
+
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    textarea {
+      width: calc(100% - 20px);
+      height: 120px;
+      resize: vertical;
+    }
+
+    #output, #serialLog {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #f9f9f9;
+      padding: 10px;
+      border: 1px solid #ccc;
+      height: 150px;
+      overflow-y: auto;
+      font-family: monospace;
+      border-radius: 4px;
+    }
+
+    #controls {
+      margin-top: 2rem;
+      padding: 15px;
+      border: 1px solid #ccc;
+      background: #f7f7f7;
+      border-radius: 6px;
+    }
+
+    #serialStatus {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: red;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+      border: 1px solid #888;
+    }
+
+    label {
+      display: inline-flex;
+      align-items: center;
+      margin-right: 1rem;
+    }
+
+    .json-section, #bitmapSection {
+      margin-top: 2rem;
+      padding: 15px;
+      border: 1px solid #ddd;
+      background: #ffffff;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .json-section h3, #bitmapSection h3 {
+      margin-bottom: 0.5rem;
+      color: #444;
+    }
+
+    #brightnessSlider {
+      vertical-align: middle;
+      margin-left: 0.5rem;
+      padding:0 0;
+    }
+    #brightnessValue {
+      display: inline-block;
+      width: 2rem;
+      text-align: right;
+      margin-left: 0.3rem;
+    }
+  </style>
+</head>
+<body>
+  <h2>送受信</h2>
+
+  <section id="bitmapSection">
+    <p>以下に文字列を入力し、「生成」ボタンを押してください。</p>
+    <label for="fontSelect">フォントを選択：</label>
+    <select id="fontSelect">
+      <option value="MisakiGothic">美咲ゴシック</option>
+      <option value="MisakiMincho">美咲明朝</option>
+      <option value="MisakiGothic2nd">美咲ゴシック第2</option>
+    </select>
+
+    <br />
+
+    <input type="text" id="inputChars" placeholder="ここに文字を入力" style="width:300px;" />
+    <button id="generateBtn">生成</button>
+    <h3>ビットマップ出力（10進数の配列）</h3>
+    <div id="output">ここに結果が表示されます</div>
+  </section>
+  <section class="json-section">
+    <h3>JSON送信機能</h3>
+    <p>以下にJSON文字列を入力し、ボタンを押すとシリアル送信します。</p>
+    <textarea id="jsonInput" placeholder="10進数配列例：[[0,60,0,0,32,64,62,0],[0,60,0,0,32,64,62,0]]
+    2進数配列例:[[000000,111100,000000,000000,100000,1000000,111110,000000],[000000,111100,000000,000000,100000,1000000,111110,000000]]" style="height: 120px; padding: 10px; font-size: 14px; white-space: pre-line;"></textarea>
+    <div style="margin-top:0.5rem;">
+      <button id="sendDecimalBtn">10進数JSONを送信</button>
+      <button id="sendBinaryBtn">2進数JSONを変換して送信</button>
+    </div>
+  </section>
+
+  <section id="controls">
+    <h3>シリアル通信</h3>
+    <label>
+      <button id="connectBtn">シリアル接続</button>
+      <span>ステータス：</span><div id="serialStatus" title="未接続"></div>
+    </label>
+    <button id="disconnectBtn" disabled>切断</button>
+    
+    <div style="margin-top:1rem;">
+      <label for="brightnessSlider">輝度:</label>
+      <input type="range" id="brightnessSlider" min="0" max="255" value="50" />
+      <span id="brightnessValue">50</span>
+    </div>
+
+    <h4>送受信ログ</h4>
+    <div id="serialLog"></div>
+  </section>
+
+  <!-- 非表示の 8×8 キャンバスを使って、フォントをビットマップに変換 -->
+  <canvas id="bmpCanvas" width="8" height="8" style="display:none;"></canvas>
+
+  <script>
+    const canvas = document.getElementById('bmpCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function setupContext() {
+      ctx.clearRect(0, 0, 8, 8);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, 8, 8);
+      ctx.fillStyle = '#000000';
+
+      const selectedFont = document.getElementById('fontSelect').value;
+      ctx.font = `8px ${selectedFont}`;
+      ctx.textBaseline = 'top';
+    }
+
+    function extractBitmap8x8(char) {
+      setupContext();
+      ctx.fillText(char, 0, 0);
+      const imgData = ctx.getImageData(0, 0, 8, 8).data;
+      const bitmap = [];
+      for (let y = 0; y < 8; y++) {
+        let byte = 0;
+        for (let x = 0; x < 8; x++) {
+          const idx = (y * 8 + x) * 4;
+          const r = imgData[idx], g = imgData[idx + 1], b = imgData[idx + 2], a = imgData[idx + 3];
+          const bit = (r < 128 && g < 128 && b < 128 && a > 0) ? 1 : 0;
+          byte |= (bit << (7 - x));
+        }
+        bitmap.push(byte);
+      }
+      return bitmap;
+    }
+
+
+    function generateAllBitmaps(inputStr) {
+      const all = [];
+      for (const ch of inputStr) {
+        const bmp = extractBitmap8x8(ch);
+        all.push(bmp);
+      }
+      return all;
+    }
+
+    document.getElementById('generateBtn').addEventListener('click', () => {
+      const input = document.getElementById('inputChars').value;
+      if (!input) {
+        alert('まず文字を入力してください。');
+        return;
+      }
+
+      // 選択されたフォントをロードしてからビットマップを生成
+      const selectedFont = document.getElementById('fontSelect').value;
+      document.fonts.load(`8px ${selectedFont}`).then(() => {
+        const bitmapArray = generateAllBitmaps(input);
+        const resultStr = JSON.stringify(bitmapArray);
+        document.getElementById('output').textContent = resultStr;
+
+        // JSON にラップして送信
+        const brightness = parseInt(document.getElementById('brightnessSlider').value, 10);
+        const payload = {
+          brightness: brightness,
+          font: bitmapArray
+        };
+        const sendStr = JSON.stringify(payload);
+
+        if (!port) {
+          alert('シリアルが接続されていません。ビットマップのみを表示します。');
+          return;
+        }
+
+        sendSerial(sendStr);
+      }).catch((err) => {
+        console.error('フォントの読み込みに失敗しました:', err);
+        const bitmapArray = generateAllBitmaps(input);
+        const resultStr = JSON.stringify(bitmapArray);
+        document.getElementById('output').textContent = resultStr;
+
+        const brightness = parseInt(document.getElementById('brightnessSlider').value, 10);
+        const payload = {
+          brightness: brightness,
+          font: bitmapArray
+        };
+        const sendStr = JSON.stringify(payload);
+
+        if (!port) {
+          alert('シリアルが接続されていません。ビットマップのみを表示します。');
+          return;
+        }
+        sendSerial(sendStr);
+      });
+    });
+
+    let port = null;
+    let reader = null;
+    let inputDone = null;
+    let outputDone = null;
+    let outputStream = null;
+
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const serialStatus = document.getElementById('serialStatus');
+    const serialLog = document.getElementById('serialLog');
+
+    function updateStatus(isConnected) {
+      if (isConnected) {
+        serialStatus.style.background = 'limegreen';
+        serialStatus.title = '接続中';
+      } else {
+        serialStatus.style.background = 'red';
+        serialStatus.title = '未接続';
+      }
+    }
+
+    function appendLog(message) {
+      const now = new Date().toLocaleTimeString('ja-JP', { hour12: false });
+      serialLog.textContent += `[${now}] ${message}\n`;
+      serialLog.scrollTop = serialLog.scrollHeight;
+    }
+
+    async function connectSerial() {
+      if (!('serial' in navigator)) {
+        alert('このブラウザは Web シリアル API をサポートしていません。');
+        return;
+      }
+      try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none', flowControl: 'none' });
+        updateStatus(true);
+        appendLog('ポートを開きました。');
+        disconnectBtn.disabled = false;
+        connectBtn.disabled = true;
+
+        startReadLoop();
+
+        const encoder = new TextEncoderStream();
+        outputDone = encoder.readable.pipeTo(port.writable);
+        outputStream = encoder.writable;
+      } catch (err) {
+        console.error('シリアル接続エラー:', err);
+        alert('シリアルポートの接続に失敗しました。');
+      }
+    }
+
+    async function startReadLoop() {
+      const decoder = new TextDecoderStream();
+      inputDone = port.readable.pipeTo(decoder.writable);
+      reader = decoder.readable.getReader();
+      appendLog('受信待機を開始しました。');
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) {
+            appendLog('受信: ' + value);
+          }
+        }
+      } catch (err) {
+        console.error('受信ループエラー:', err);
+      } finally {
+        reader.releaseLock();
+        if (port) {
+          appendLog('デバイスが切断されました。');
+        }
+        updateStatus(false);
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+        port = null;
+      }
+    }
+
+    async function sendSerial(data) {
+      if (!outputStream) {
+        alert('ポートが開かれていません。');
+        return;
+      }
+      const writer = outputStream.getWriter();
+      try {
+        await writer.write(data);
+        appendLog('送信: ' + data);
+      } catch (err) {
+        console.error('送信エラー:', err);
+        alert('送信に失敗しました。');
+      } finally {
+        writer.releaseLock();
+      }
+    }
+
+    async function disconnectSerial() {
+      if (reader) {
+        await reader.cancel();
+        await inputDone.catch(() => {});
+        reader = null;
+        inputDone = null;
+      }
+      if (outputStream) {
+        await outputStream.getWriter().close();
+        await outputDone;
+        outputStream = null;
+        outputDone = null;
+      }
+      await port.close();
+      port = null;
+      updateStatus(false);
+      appendLog('ポートを閉じました。');
+      connectBtn.disabled = false;
+      disconnectBtn.disabled = true;
+    }
+
+    connectBtn.addEventListener('click', () => {
+      connectSerial();
+    });
+    disconnectBtn.addEventListener('click', () => {
+      disconnectSerial();
+    });
+
+    updateStatus(false);
+
+    if ('serial' in navigator) {
+      navigator.serial.addEventListener('disconnect', (event) => {
+        appendLog('デバイスが切断されました。');
+        updateStatus(false);
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+        port = null;
+      });
+    }
+
+    const brightnessSlider = document.getElementById('brightnessSlider');
+    const brightnessValue = document.getElementById('brightnessValue');
+    brightnessSlider.addEventListener('input', () => {
+      brightnessValue.textContent = brightnessSlider.value;
+    });
+
+    const jsonInput = document.getElementById('jsonInput');
+    const sendDecimalBtn = document.getElementById('sendDecimalBtn');
+    const sendBinaryBtn = document.getElementById('sendBinaryBtn');
+
+
+    function preprocessForDecimal(text) {
+      return text.replace(/'/g, '"');
+    }
+
+    function preprocessForBinary(text) {
+      let s = text.replace(/'/g, '"');
+      s = s.replace(/(?<=\[|,)\s*([01]+)\s*(?=,|\])/g, '"$1"');
+      return s;
+    }
+
+    function convertBinaryJsonToDecimal(arr) {
+      if (!Array.isArray(arr)) {
+        throw new Error('入力が配列ではありません。');
+      }
+      return arr.map(row => {
+        if (!Array.isArray(row)) {
+          throw new Error('2次元配列ではありません。');
+        }
+        return row.map(bitstr => {
+          if (typeof bitstr !== 'string') {
+            throw new Error('配列要素が文字列ではありません。');
+          }
+          const num = parseInt(bitstr, 2);
+          if (isNaN(num)) {
+            throw new Error(`"${bitstr}" は有効な2進数ではありません。`);
+          }
+          return num;
+        });
+      });
+    }
+
+    sendDecimalBtn.addEventListener('click', () => {
+      let text = jsonInput.value.trim();
+      if (!text) {
+        alert('JSON文字列を入力してください。');
+        return;
+      }
+
+      text = preprocessForDecimal(text);
+
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (e) {
+        alert('JSONの構文エラーです。正しいJSONを入力してください。');
+        return;
+      }
+
+      // ラップして送信
+      const brightness = parseInt(document.getElementById('brightnessSlider').value, 10);
+      const payload = {
+        brightness: brightness,
+        font: parsed
+      };
+      const sendStr = JSON.stringify(payload);
+
+      if (!port) {
+        alert('シリアルが接続されていません。');
+        return;
+      }
+      sendSerial(sendStr);
+    });
+
+    sendBinaryBtn.addEventListener('click', () => {
+      let text = jsonInput.value.trim();
+      if (!text) {
+        alert('JSON文字列を入力してください。');
+        return;
+      }
+
+      text = preprocessForBinary(text);
+
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (e) {
+        alert('JSONの構文エラーです。正しいJSONを入力してください。');
+        console.log(e.message);
+        return;
+      }
+      let decimalArr;
+      try {
+        decimalArr = convertBinaryJsonToDecimal(parsed);
+      } catch (e) {
+        alert('変換エラー: ' + e.message);
+        return;
+      }
+
+      // ラップして送信
+      const brightness = parseInt(document.getElementById('brightnessSlider').value, 10);
+      const payload = {
+        brightness: brightness,
+        font: decimalArr
+      };
+      const sendStr = JSON.stringify(payload);
+
+      if (!port) {
+        alert('シリアルが接続されていません。');
+        return;
+      }
+      sendSerial(sendStr);
+    });
+  </script>
+</body>
+</html>
