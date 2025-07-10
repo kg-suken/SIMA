@@ -3,6 +3,9 @@
 SIMAのマトリクスLEDに文字を表示するネームプレートシステムです。  
 同時に **2文字** まで表示可能で、**3文字以上は自動でスクロール**されます。  
 Webページから **Web Serial API** を利用して、パターンを転送することができます。
+![IMG_20250629_211911](https://github.com/user-attachments/assets/1a2bba4c-2d84-4f08-addd-17d4b018f0c5)
+
+
 
 >[!NOTE]
 >Web Serial API はPC版 Chrome など一部のブラウザのみ対応しています。
